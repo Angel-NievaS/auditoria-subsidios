@@ -101,7 +101,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=True,   # consola visible: muestra logs de Flask y errores de inicio
-    icon=None,
+    icon="icon.ico",
 )
 
 coll = COLLECT(

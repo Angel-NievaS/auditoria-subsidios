@@ -38,3 +38,6 @@ output/
 dist/
 build/
 *.spec.bak
+
+# Archivos generados de íconos
+icon_preview.png
