@@ -1,42 +1,91 @@
-# Auditoría Comprobantes de Subsidios
+# Auditoría de Subsidios — Talento Digital
 
-## Instalación
+Aplicación web local para auditar comprobantes de pago de subsidios de alumnos Talento Digital.
+Procesa PDFs de liquidaciones, certificados BancoEstado y comprobantes de transferencia (OCR),
+y genera un informe Excel con alertas por alumno y por curso.
+
+---
+
+## Descargar e instalar
+
+> **No requiere Python, Tesseract ni ninguna otra dependencia.**
+
+[![Descargar instalador](https://img.shields.io/badge/Descargar-Auditoria_Subsidios_v1.0_Setup.exe-blue?style=for-the-badge&logo=windows)](https://github.com/Angel-NievaS/auditoria-subsidios/releases/latest/download/Auditoria_Subsidios_v1.0_Setup.exe)
+
+O desde la [página de releases](https://github.com/Angel-NievaS/auditoria-subsidios/releases/latest).
+
+---
+
+## Uso
+
+1. Ejecutar **Auditoria Subsidios** desde el acceso directo del escritorio.
+2. Se abrirá el navegador en `http://127.0.0.1:5000`.
+3. Seleccionar la carpeta con los comprobantes y hacer clic en **Analizar**.
+4. Al terminar, descargar el informe Excel con el botón **Exportar**.
+
+### Estructura de carpetas esperada
+
+```
+RTD-XX-XX-XX-XXXX-X/
+├── ALUMNO UNO/
+│   ├── Semana1.pdf
+│   └── Semana2.pdf
+└── ALUMNO DOS/
+    └── COMPROBANTES POR ALUMNOS/
+        └── Semana1.pdf
+```
+
+---
+
+## Formatos de comprobante soportados
+
+| Formato | Descripción |
+|---------|-------------|
+| Liquidación de pago | PDF texto ~14 KB |
+| Certificado BancoEstado v1 | PDF texto ~32–41 KB |
+| Certificado BancoEstado v2 | PDF texto |
+| Comprobante de transferencia | PDF con imagen (OCR) |
+
+---
+
+## Desarrollo
+
+### Requisitos
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate      # Windows
-# source .venv/bin/activate  # macOS / Linux
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Dependencia de sistema: Tesseract OCR
+Tesseract OCR es necesario para comprobantes con datos en imagen:
+- **Windows**: https://github.com/UB-Mannheim/tesseract/wiki (instalar paquete `spa`)
 
-Necesario para el Formato 2 (comprobantes con datos en imagen).
-
-- **Windows**: descargar instalador desde https://github.com/UB-Mannheim/tesseract/wiki
-  e instalar el paquete de idioma `spa` (Spanish).
-- **macOS**: `brew install tesseract tesseract-lang`
-- **Debian/Ubuntu**: `sudo apt-get install tesseract-ocr tesseract-ocr-spa`
-
-Si Tesseract no está instalado, los comprobantes de Formato 2 se marcan como
-⚠️ "Revisar manualmente" y el análisis continúa sin interrupciones.
-
-## Cómo ejecutar
+### Ejecutar en modo desarrollo
 
 ```bash
-flask --app app run
+flask --app app run --debug
 ```
 
-Luego abrir http://127.0.0.1:5000 en el navegador.
+### Construir el instalador
 
-## Estructura
+```bash
+# 1. Ejecutable PyInstaller
+.venv\Scripts\pyinstaller auditoria.spec
+
+# 2. Instalador Inno Setup
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+```
+
+### Estructura del proyecto
 
 ```
-src/sources/      ← abstracción de fuente (LocalSource hoy, DriveSource en el futuro)
-src/parsing/      ← clasificador y 4 extractores
-src/domain/       ← modelos de datos + reglas de auditoría
-src/services/     ← orquestación
-src/export/       ← generación de Excel
+src/
+├── domain/       ← modelos de datos y reglas de auditoría
+├── export/       ← generación de Excel
+├── parsing/      ← clasificador y extractores de PDF
+├── services/     ← orquestación y paralelismo
+└── sources/      ← abstracción de fuente (local / Drive)
 templates/        ← vistas Jinja2
-tests/            ← pruebas pytest (agregar PDF reales en tests/fixtures/)
+tests/            ← pruebas pytest
 ```
