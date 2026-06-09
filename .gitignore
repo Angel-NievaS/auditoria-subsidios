@@ -33,3 +33,8 @@ Thumbs.db
 *.xlsx
 uploads/
 output/
+
+# PyInstaller
+dist/
+build/
+*.spec.bak

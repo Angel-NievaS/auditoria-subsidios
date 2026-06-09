@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -13,7 +14,19 @@ from src.export.excel_exporter import export_to_excel
 from src.services.analysis_service import run_analysis
 from src.sources.local_source import LocalSource
 
-app = Flask(__name__)
+
+def _resource_path(relative: str) -> str:
+    """Resuelve rutas de recursos tanto en desarrollo como en ejecutable bundled."""
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative)
+
+
+app = Flask(
+    __name__,
+    template_folder=_resource_path("templates"),
+    static_folder=_resource_path("static"),
+)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
 
 # ── Estado global del proceso ────────────────────────────────────────────────
