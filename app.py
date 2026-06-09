@@ -70,6 +70,7 @@ def analizar():
         "current": "",
         "students": [],   # [{name, curso, state}]  state: pending|active|done
         "error": None,
+        "cancelado": False,
     }
 
     temp_dir = _TEMP_DIR
@@ -111,7 +112,11 @@ def _run_job(job_id: str, temp_dir: str) -> None:
                 activos = [s["name"] for s in job["students"] if s["state"] == "active"]
                 job["current"] = activos[0] if activos else ""
 
-        resultado = run_analysis(source, on_progress=on_progress)
+        resultado = run_analysis(
+            source,
+            on_progress=on_progress,
+            cancelado=lambda: _JOBS.get(job_id, {}).get("cancelado", False),
+        )
 
         with progress_lock:
             for s in job["students"]:
@@ -156,6 +161,26 @@ def progresso(job_id: str):
         mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Cancelar análisis en curso ────────────────────────────────────────────────
+@app.route("/cancelar/<job_id>", methods=["POST"])
+def cancelar(job_id: str):
+    job = _JOBS.get(job_id)
+    if job:
+        job["cancelado"] = True
+        job["status"] = "cancelled"
+    return {"ok": True}
+
+
+# ── Cerrar aplicación ─────────────────────────────────────────────────────────
+@app.route("/shutdown", methods=["POST"])
+def shutdown():
+    def _exit():
+        time.sleep(0.4)
+        os._exit(0)
+    threading.Thread(target=_exit, daemon=True).start()
+    return {"ok": True}
 
 
 # ── Resultado ─────────────────────────────────────────────────────────────────

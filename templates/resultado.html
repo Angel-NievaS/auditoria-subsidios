@@ -17,6 +17,7 @@
       <button class="btn-secondary" onclick="toggleAll(false)">▲ Colapsar todo</button>
       <a href="/" class="btn-secondary">← Nueva auditoría</a>
       <a href="/exportar" class="btn-primary">⬇ Descargar Excel</a>
+      <button class="btn-danger-outline" onclick="cerrarApp()">⏻ Cerrar</button>
     </div>
   </div>
 
@@ -210,6 +211,11 @@
 <script>
 function toggleAll(open) {
   document.querySelectorAll('details').forEach(d => d.open = open);
+}
+async function cerrarApp() {
+  if (!confirm('¿Cerrar la aplicación?')) return;
+  await fetch('/shutdown', { method: 'POST' });
+  document.body.innerHTML = '<p style="font-family:sans-serif;padding:2rem">Aplicación cerrada. Puedes cerrar esta pestaña.</p>';
 }
 </script>
 </body>

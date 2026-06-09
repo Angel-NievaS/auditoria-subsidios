@@ -29,6 +29,7 @@ _MAX_WORKERS = os.cpu_count() or 4  # un hilo por núcleo disponible
 def run_analysis(
     source: ReceiptSource,
     on_progress: Callable[[str, str, int, int], None] | None = None,
+    cancelado: Callable[[], bool] | None = None,
 ) -> ResultadoAuditoria:
     """
     Procesa hasta _MAX_WORKERS alumnos en paralelo con ThreadPoolExecutor.
@@ -47,7 +48,9 @@ def run_analysis(
     lock = threading.Lock()
     n_done_ref = [0]
 
-    def _procesar_uno(idx: int, folder: StudentFolder) -> tuple[int, ResultadoAlumno]:
+    def _procesar_uno(idx: int, folder: StudentFolder) -> tuple[int, ResultadoAlumno | None]:
+        if cancelado and cancelado():
+            return idx, None
         if on_progress:
             with lock:
                 on_progress("start", folder.name, n_done_ref[0], n_total)
@@ -59,7 +62,7 @@ def run_analysis(
             if folder.name in duplicados:
                 resultado.alertas.insert(0, Alerta("🟡", "warn",
                     f"Carpeta duplicada: '{folder.name}' aparece en más de una ruta"))
-            _imprimir_alertas(folder.name, resultado)
+            # _imprimir_alertas(folder.name, resultado)  # traza desactivada
         except Exception as exc:
             resultado = ResultadoAlumno(
                 nombre=folder.name,
@@ -83,7 +86,8 @@ def run_analysis(
         ]
         for future in as_completed(futures):
             idx, resultado = future.result()
-            resultados[idx] = resultado
+            if resultado is not None:
+                resultados[idx] = resultado
 
     return ResultadoAuditoria(
         carpeta=carpeta_nombre,

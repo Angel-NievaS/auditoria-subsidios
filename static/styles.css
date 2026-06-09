@@ -43,6 +43,13 @@ h1 { font-size: 1.4rem; color: #1a3a5c; font-weight: 700; }
 .btn-secondary { background: #dde4ee; color: #333; }
 .btn-secondary:hover { background: #c8d2e0; }
 button.btn-primary { font-size: 1rem; padding: 0.5rem 1.4rem; }
+.btn-danger { background: #c0392b; color: #fff; border: none; border-radius: 5px;
+  padding: 0.4rem 0.9rem; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+.btn-danger:hover { background: #a93226; }
+.btn-danger-outline { background: transparent; color: #c0392b; border: 1px solid #c0392b;
+  border-radius: 5px; padding: 0.35rem 0.8rem; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+.btn-danger-outline:hover { background: #fdf0ef; }
+.footer-cerrar { margin-top: 2rem; text-align: right; }
 
 /* ── Drop zone (index) ── */
 .drop-zone {

@@ -34,6 +34,7 @@
         <span class="loading-timer">⏱ <span id="elapsed">0</span>s</span>
         <div id="warn-ocr"     class="loading-warn"  style="display:none">⏳ Documentos con imagen (OCR) tardan más. Por favor espera.</div>
         <div id="warn-timeout" class="loading-error" style="display:none">⚠️ Proceso tardando demasiado. Si no responde, recarga la página e intenta con menos archivos.</div>
+        <button id="btn-cancelar" class="btn-danger" onclick="cancelarAnalisis()" style="display:none">✖ Cancelar análisis</button>
       </div>
     </div>
   </div>
@@ -56,6 +57,9 @@
       <p id="conteo" class="conteo"></p>
       <button type="submit" class="btn-primary" id="btn-analizar">Analizar</button>
     </form>
+    <div class="footer-cerrar">
+      <button class="btn-danger-outline" onclick="cerrarApp()">⏻ Cerrar aplicación</button>
+    </div>
   </div>
 
 <script>
@@ -89,6 +93,7 @@ document.getElementById('form-analizar').addEventListener('submit', async functi
     const data = await resp.json();
     if (data.error) { showError(data.error); return; }
     jobId = data.job_id;
+    currentJobId = jobId;
   } catch(err) {
     showError('Error al subir archivos: ' + err.message);
     return;
@@ -103,12 +108,14 @@ document.getElementById('form-analizar').addEventListener('submit', async functi
     if (job.status === 'done') {
       evtSource.close();
       clearInterval(elapsedTimer);
+      document.getElementById('btn-cancelar').style.display = 'none';
       document.getElementById('loading-msg').textContent = '¡Análisis completado! Cargando resultado…';
       document.getElementById('bar-general').style.width = '100%';
       setTimeout(() => { window.location.href = '/resultado/' + jobId; }, 600);
     } else if (job.status === 'error') {
       evtSource.close();
       clearInterval(elapsedTimer);
+      document.getElementById('btn-cancelar').style.display = 'none';
       showError('Error en el análisis: ' + (job.error || 'desconocido'));
     }
   };
@@ -120,6 +127,24 @@ document.getElementById('form-analizar').addEventListener('submit', async functi
 });
 
 // ── Overlay ───────────────────────────────────────────────────────────────────
+let currentJobId = null;
+
+async function cancelarAnalisis() {
+  if (!currentJobId) return;
+  await fetch('/cancelar/' + currentJobId, { method: 'POST' });
+  if (evtSource) evtSource.close();
+  clearInterval(elapsedTimer);
+  document.getElementById('loading-overlay').classList.remove('visible');
+  document.getElementById('btn-analizar').disabled = false;
+  document.getElementById('btn-cancelar').style.display = 'none';
+}
+
+async function cerrarApp() {
+  if (!confirm('¿Cerrar la aplicación?')) return;
+  await fetch('/shutdown', { method: 'POST' });
+  document.body.innerHTML = '<p style="font-family:sans-serif;padding:2rem">Aplicación cerrada. Puedes cerrar esta pestaña.</p>';
+}
+
 function showOverlay() {
   studentsRendered = false;
   elapsed = 0;
@@ -131,6 +156,7 @@ function showOverlay() {
   document.getElementById('label-general').textContent = '0 / 0 alumnos';
   document.getElementById('loading-overlay').classList.add('visible');
   document.getElementById('btn-analizar').disabled = true;
+  document.getElementById('btn-cancelar').style.display = 'inline-block';
 
   elapsedTimer = setInterval(() => {
     elapsed++;
