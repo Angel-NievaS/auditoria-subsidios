@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resultado Auditoría – Talento Digital</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<div class="container">
+
+  {# ── Barra superior ── #}
+  <div class="toolbar">
+    <h1>Auditoría de Comprobantes</h1>
+    <div class="toolbar-actions">
+      <button class="btn-secondary" onclick="toggleAll(true)">▼ Expandir todo</button>
+      <button class="btn-secondary" onclick="toggleAll(false)">▲ Colapsar todo</button>
+      <a href="/" class="btn-secondary">← Nueva auditoría</a>
+      <a href="/exportar" class="btn-primary">⬇ Descargar Excel</a>
+    </div>
+  </div>
+
+  <p class="subtitle">
+    Carpeta: <strong>{{ resultado.carpeta }}</strong> &nbsp;·&nbsp;
+    Análisis: <strong>{{ resultado.fecha }}</strong>
+  </p>
+
+  {# ── Stats ── #}
+  {% set st = namespace(cursos=0, alumnos=resultado.alumnos|length, total=0, alertas=0) %}
+  {% set cursos_vistos = namespace(lista=[]) %}
+  {% for a in resultado.alumnos %}
+    {% if a.curso not in cursos_vistos.lista %}
+      {% set cursos_vistos.lista = cursos_vistos.lista + [a.curso] %}
+      {% set st.cursos = st.cursos + 1 %}
+    {% endif %}
+    {% for c in a.comprobantes %}{% if c.monto %}{% set st.total = st.total + c.monto %}{% endif %}{% endfor %}
+    {% set st.alertas = st.alertas + (a.alertas | rejectattr('severidad','equalto','info') | list | length) %}
+    {% for c in a.comprobantes %}{% set st.alertas = st.alertas + (c.alertas | rejectattr('severidad','equalto','info') | list | length) %}{% endfor %}
+  {% endfor %}
+
+  <div class="stats-bar">
+    <div class="stat-card">
+      <span class="stat-num">{{ st.cursos }}</span>
+      <span class="stat-lbl">{{ 'Curso' if st.cursos == 1 else 'Cursos' }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num">{{ st.alumnos }}</span>
+      <span class="stat-lbl">{{ 'Alumno' if st.alumnos == 1 else 'Alumnos' }}</span>
+    </div>
+    <div class="stat-card accent">
+      <span class="stat-num">${{ "{:,}".format(st.total).replace(",", ".") }}</span>
+      <span class="stat-lbl">Total pagado</span>
+    </div>
+    <div class="stat-card {{ 'alerta' if st.alertas else '' }}">
+      <span class="stat-num">{{ st.alertas }}</span>
+      <span class="stat-lbl">{{ 'Alerta' if st.alertas == 1 else 'Alertas' }}</span>
+    </div>
+  </div>
+
+  {# ── Macro: tabla de comprobantes de una categoría ── #}
+  {% macro tabla_comprobantes(comps) %}
+  <div class="tabla-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Semana</th><th>Pago</th><th>Tipo doc</th>
+          <th class="col-monto">Monto</th>
+          <th>RUT</th><th>Tipo cuenta</th><th>N° cuenta</th><th>Banco</th>
+          <th>Fecha pago</th><th>Estado</th><th>Alertas</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set ns = namespace(semana_actual=None, subtotal=0, count=0) %}
+        {% for c in comps %}
+          {% if ns.semana_actual is not none and c.semana != ns.semana_actual and ns.count > 1 %}
+          <tr class="subtotal">
+            <td>Sem. {{ ns.semana_actual }}</td>
+            <td colspan="2"><em>Subtotal</em></td>
+            <td class="col-monto">${{ "{:,}".format(ns.subtotal|int).replace(",",".") }}</td>
+            <td colspan="7"></td>
+          </tr>
+          {% endif %}
+          {% if c.semana != ns.semana_actual %}
+            {% set ns.semana_actual = c.semana %}
+            {% set ns.subtotal = 0 %}{% set ns.count = 0 %}
+          {% endif %}
+          {% if c.monto %}{% set ns.subtotal = ns.subtotal + c.monto %}{% endif %}
+          {% set ns.count = ns.count + 1 %}
+
+          {% set row_class = '' %}
+          {% for a in c.alertas %}
+            {% if a.severidad == 'error' %}{% set row_class = 'error' %}{% endif %}
+            {% if a.severidad == 'warn' and row_class != 'error' %}{% set row_class = 'warn' %}{% endif %}
+          {% endfor %}
+          <tr class="{{ row_class }}">
+            <td>{{ c.semana if c.semana is not none else '?' }}</td>
+            <td>Pago {{ c.indice_pago }}</td>
+            <td><span class="tipo-doc">{{ c.tipo_documento }}</span></td>
+            <td class="col-monto">{{ ('$' ~ "{:,}".format(c.monto).replace(",",".")) if c.monto is not none else '—' }}</td>
+            <td class="rut">{{ c.rut_beneficiario or '—' }}</td>
+            <td>{{ c.tipo_cuenta or '—' }}</td>
+            <td class="mono">{{ c.numero_cuenta or '—' }}</td>
+            <td>{{ c.banco or '—' }}</td>
+            <td class="mono">{{ c.fecha_pago or '—' }}</td>
+            <td>
+              {% if c.estado_pago %}
+                <span class="estado {{ 'pagado' if c.estado_pago|lower in ['pagado','autorizada','autorizado','aceptado'] else 'rechazado' if c.estado_pago|lower == 'rechazado' else '' }}">
+                  {{ c.estado_pago }}
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="col-alertas">
+              {% for a in c.alertas %}
+                <span class="badge badge-{{ a.severidad }}" title="{{ a.mensaje }}">{{ a.icono }}</span>
+              {% endfor %}
+              {% if c.nota %}<span class="nota" title="{{ c.nota }}">ℹ️</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+
+        {% if ns.count > 1 %}
+        <tr class="subtotal">
+          <td>Sem. {{ ns.semana_actual }}</td>
+          <td colspan="2"><em>Subtotal</em></td>
+          <td class="col-monto">${{ "{:,}".format(ns.subtotal|int).replace(",",".") }}</td>
+          <td colspan="7"></td>
+        </tr>
+        {% endif %}
+
+        {% set total = namespace(v=0) %}
+        {% for c in comps %}{% if c.monto %}{% set total.v = total.v + c.monto %}{% endif %}{% endfor %}
+        <tr class="total">
+          <td colspan="3">TOTAL</td>
+          <td class="col-monto">${{ "{:,}".format(total.v|int).replace(",",".") }}</td>
+          <td colspan="7"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% endmacro %}
+
+  {# ── Agrupar alumnos por curso ── #}
+  {% for curso, grupo in resultado.alumnos | groupby("curso") %}
+  <details class="curso-bloque" open>
+    <summary class="curso-header">
+      <span class="curso-codigo">{{ curso if curso else 'Sin código de curso' }}</span>
+      <span class="curso-meta">{{ grupo | list | length }} alumnos</span>
+    </summary>
+
+    {% for alumno in grupo %}
+    {% set comps_sub = alumno.comprobantes | selectattr("categoria","equalto","subsidio") | list %}
+    {% set comps_cui = alumno.comprobantes | selectattr("categoria","equalto","cuidados") | list %}
+    {% set total_al = namespace(v=0) %}
+    {% for c in alumno.comprobantes %}{% if c.monto %}{% set total_al.v = total_al.v + c.monto %}{% endif %}{% endfor %}
+    {% set n_alertas_alumno = alumno.alertas | rejectattr('severidad','equalto','info') | list | length %}
+    {% set n_alertas_comp   = namespace(v=0) %}
+    {% for c in alumno.comprobantes %}
+      {% set n_alertas_comp.v = n_alertas_comp.v + (c.alertas | rejectattr('severidad','equalto','info') | list | length) %}
+    {% endfor %}
+    {% set n_alertas = n_alertas_alumno + n_alertas_comp.v %}
+
+    <details class="alumno-bloque" open>
+      <summary class="alumno-header">
+        <span class="alumno-nombre">{{ alumno.nombre }}</span>
+        <span class="alumno-chips">
+          <span class="chip">{{ alumno.comprobantes|length }} comprobante{{ 's' if alumno.comprobantes|length != 1 }}</span>
+          <span class="chip accent">${{ "{:,}".format(total_al.v|int).replace(",",".") }}</span>
+          {% if n_alertas %}
+            {% set msgs_alumno = alumno.alertas | map(attribute='mensaje') | list %}
+            {% set tooltip_lines = msgs_alumno %}
+            {% if n_alertas_comp.v %}
+              {% set tooltip_lines = tooltip_lines + ['+ ' ~ n_alertas_comp.v ~ ' alerta(s) en comprobantes individuales'] %}
+            {% endif %}
+            <span class="chip alerta" title="{{ tooltip_lines | join('\n') }}">
+              ⚠ {{ n_alertas }} alerta{{ 's' if n_alertas != 1 }}
+            </span>
+          {% endif %}
+        </span>
+      </summary>
+
+      <div class="alumno-content">
+        {% for alerta in alumno.alertas %}
+        <div class="alerta alerta-{{ alerta.severidad }}">{{ alerta.icono }} {{ alerta.mensaje }}</div>
+        {% endfor %}
+
+        {% if comps_sub %}
+          {% if comps_cui %}<h4 class="cat-titulo">Subsidio</h4>{% endif %}
+          {{ tabla_comprobantes(comps_sub) }}
+        {% endif %}
+
+        {% if comps_cui %}
+          <h4 class="cat-titulo cuidados">Cuidados</h4>
+          {{ tabla_comprobantes(comps_cui) }}
+        {% endif %}
+
+        {% if not comps_sub and not comps_cui %}
+          <p class="sin-datos">Sin comprobantes PDF en esta carpeta.</p>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+
+  </details>
+  {% else %}
+  <p class="sin-datos">No se encontraron carpetas de alumnos.</p>
+  {% endfor %}
+
+</div>
+
+<script>
+function toggleAll(open) {
+  document.querySelectorAll('details').forEach(d => d.open = open);
+}
+</script>
+</body>
+</html>

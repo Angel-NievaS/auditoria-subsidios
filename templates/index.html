@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auditoría Comprobantes – Talento Digital</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+
+  {# ── Overlay de carga ── #}
+  <div id="loading-overlay">
+    <div class="loading-card">
+      <div class="loading-header">
+        <div class="spinner"></div>
+        <div>
+          <p class="loading-title">Analizando comprobantes…</p>
+          <p id="loading-msg" class="loading-msg">Preparando análisis…</p>
+        </div>
+      </div>
+
+      {# Barra general #}
+      <div class="progress-overall">
+        <div class="progress-overall-bar">
+          <div id="bar-general" class="progress-fill"></div>
+        </div>
+        <span id="label-general" class="progress-label">0 / 0 alumnos</span>
+      </div>
+
+      {# Barras por alumno #}
+      <div id="student-bars" class="student-bars"></div>
+
+      <div class="loading-footer">
+        <span class="loading-timer">⏱ <span id="elapsed">0</span>s</span>
+        <div id="warn-ocr"     class="loading-warn"  style="display:none">⏳ Documentos con imagen (OCR) tardan más. Por favor espera.</div>
+        <div id="warn-timeout" class="loading-error" style="display:none">⚠️ Proceso tardando demasiado. Si no responde, recarga la página e intenta con menos archivos.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>Auditoría de Comprobantes de Subsidios</h1>
+    <p class="subtitle">Selecciona la carpeta del curso (o la carpeta general que contiene varios cursos).</p>
+
+    {% if error %}
+    <div class="alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form id="form-analizar" enctype="multipart/form-data">
+      <div class="drop-zone">
+        <p>📁 Haz clic o arrastra aquí la carpeta de comprobantes</p>
+        <input type="file" name="archivos" id="file-input"
+               webkitdirectory directory multiple
+               onchange="actualizarConteo(this)">
+      </div>
+      <p id="conteo" class="conteo"></p>
+      <button type="submit" class="btn-primary" id="btn-analizar">Analizar</button>
+    </form>
+  </div>
+
+<script>
+function actualizarConteo(input) {
+  const n = input.files.length;
+  document.getElementById('conteo').textContent = n > 0 ? `${n} archivo(s) seleccionado(s)` : '';
+}
+
+// ── Estado ───────────────────────────────────────────────────────────────────
+let elapsed = 0, elapsedTimer = null, evtSource = null;
+let studentsRendered = false;
+
+// ── Submit ───────────────────────────────────────────────────────────────────
+document.getElementById('form-analizar').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const files = document.getElementById('file-input').files;
+  if (!files || files.length === 0) {
+    alert('Selecciona una carpeta primero.');
+    return;
+  }
+
+  showOverlay();
+
+  const formData = new FormData();
+  for (const f of files) formData.append('archivos', f, f.webkitRelativePath || f.name);
+
+  let jobId;
+  try {
+    const resp = await fetch('/analizar', { method: 'POST', body: formData });
+    const data = await resp.json();
+    if (data.error) { showError(data.error); return; }
+    jobId = data.job_id;
+  } catch(err) {
+    showError('Error al subir archivos: ' + err.message);
+    return;
+  }
+
+  // Conectar SSE
+  evtSource = new EventSource('/progresso/' + jobId);
+  evtSource.onmessage = function(ev) {
+    const job = JSON.parse(ev.data);
+    updateProgress(job);
+
+    if (job.status === 'done') {
+      evtSource.close();
+      clearInterval(elapsedTimer);
+      document.getElementById('loading-msg').textContent = '¡Análisis completado! Cargando resultado…';
+      document.getElementById('bar-general').style.width = '100%';
+      setTimeout(() => { window.location.href = '/resultado/' + jobId; }, 600);
+    } else if (job.status === 'error') {
+      evtSource.close();
+      clearInterval(elapsedTimer);
+      showError('Error en el análisis: ' + (job.error || 'desconocido'));
+    }
+  };
+  evtSource.onerror = function() {
+    evtSource.close();
+    clearInterval(elapsedTimer);
+    showError('Se perdió la conexión con el servidor.');
+  };
+});
+
+// ── Overlay ───────────────────────────────────────────────────────────────────
+function showOverlay() {
+  studentsRendered = false;
+  elapsed = 0;
+  document.getElementById('elapsed').textContent = '0';
+  document.getElementById('warn-ocr').style.display = 'none';
+  document.getElementById('warn-timeout').style.display = 'none';
+  document.getElementById('student-bars').innerHTML = '';
+  document.getElementById('bar-general').style.width = '0%';
+  document.getElementById('label-general').textContent = '0 / 0 alumnos';
+  document.getElementById('loading-overlay').classList.add('visible');
+  document.getElementById('btn-analizar').disabled = true;
+
+  elapsedTimer = setInterval(() => {
+    elapsed++;
+    document.getElementById('elapsed').textContent = elapsed;
+    if (elapsed === 20) document.getElementById('warn-ocr').style.display = 'block';
+    if (elapsed === 180) document.getElementById('warn-timeout').style.display = 'block';
+  }, 1000);
+}
+
+function showError(msg) {
+  document.getElementById('loading-overlay').classList.remove('visible');
+  document.getElementById('btn-analizar').disabled = false;
+  clearInterval(elapsedTimer);
+  const err = document.createElement('div');
+  err.className = 'alert-error';
+  err.textContent = msg;
+  document.querySelector('.container').prepend(err);
+}
+
+// ── Progreso ──────────────────────────────────────────────────────────────────
+function updateProgress(job) {
+  const { n_done, n_total, current, students, status } = job;
+
+  // Barra general
+  const pct = n_total > 0 ? Math.round(n_done / n_total * 100) : 0;
+  document.getElementById('bar-general').style.width = pct + '%';
+  document.getElementById('label-general').textContent =
+    n_total > 0 ? `${n_done} / ${n_total} alumnos (${pct}%)` : 'Iniciando…';
+
+  // Mensaje
+  if (current) {
+    document.getElementById('loading-msg').textContent = 'Procesando: ' + current;
+  } else if (status === 'running' && n_done === n_total && n_total > 0) {
+    document.getElementById('loading-msg').textContent = 'Finalizando análisis…';
+  }
+
+  // Barras por alumno
+  if (students && students.length > 0) {
+    renderStudentBars(students);
+  }
+}
+
+function renderStudentBars(students) {
+  const container = document.getElementById('student-bars');
+
+  // Agrupar por curso
+  const groups = {};
+  for (const s of students) {
+    const key = s.curso || '';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(s);
+  }
+
+  // Primera vez: crear estructura
+  if (!studentsRendered) {
+    studentsRendered = true;
+    container.innerHTML = '';
+    const multiCurso = Object.keys(groups).length > 1;
+
+    for (const [curso, list] of Object.entries(groups)) {
+      const grp = document.createElement('div');
+      grp.className = 'pb-group';
+      grp.dataset.curso = curso;
+
+      if (multiCurso) {
+        const hdr = document.createElement('div');
+        hdr.className = 'pb-curso';
+        hdr.textContent = curso || 'Sin código de curso';
+        grp.appendChild(hdr);
+      }
+
+      for (const s of list) {
+        const row = document.createElement('div');
+        row.className = 'pb-row';
+        row.id = 'pb-' + s.name.replace(/\s+/g, '_');
+        row.innerHTML = `
+          <span class="pb-icon">○</span>
+          <span class="pb-name">${s.name}</span>
+          <div class="pb-bar"><div class="pb-fill"></div></div>`;
+        grp.appendChild(row);
+      }
+      container.appendChild(grp);
+    }
+  }
+
+  // Actualizar estados
+  for (const s of students) {
+    const id = 'pb-' + s.name.replace(/\s+/g, '_');
+    const row = document.getElementById(id);
+    if (!row) continue;
+    row.className = 'pb-row ' + s.state;
+    row.querySelector('.pb-icon').textContent =
+      s.state === 'done' ? '✓' : s.state === 'active' ? '▶' : '○';
+    row.querySelector('.pb-fill').style.width =
+      s.state === 'done' ? '100%' : s.state === 'active' ? '55%' : '0%';
+  }
+}
+</script>
+</body>
+</html>
