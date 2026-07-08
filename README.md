@@ -10,7 +10,7 @@ y genera un informe Excel con alertas por alumno y por curso.
 
 > **No requiere Python, Tesseract ni ninguna otra dependencia.**
 
-[![Descargar instalador](https://img.shields.io/badge/Descargar-Auditoria_Subsidios_v1.0_Setup.exe-blue?style=for-the-badge&logo=windows)](https://github.com/Angel-NievaS/auditoria-subsidios/releases/latest/download/Auditoria_Subsidios_v1.0_Setup.exe)
+[![Descargar instalador](https://img.shields.io/badge/Descargar-Auditoria_Subsidios_v1.1_Setup.exe-blue?style=for-the-badge&logo=windows)](https://github.com/Angel-NievaS/auditoria-subsidios/releases/latest/download/Auditoria_Subsidios_v1.1_Setup.exe)
 
 O desde la [página de releases](https://github.com/Angel-NievaS/auditoria-subsidios/releases/latest).
 
