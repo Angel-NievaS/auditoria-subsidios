@@ -50,6 +50,13 @@ def analizar():
     if not archivos or all(f.filename == "" for f in archivos):
         return {"error": "No se seleccionaron archivos."}, 400
 
+    try:
+        num_semanas = int(request.form.get("num_semanas", ""))
+    except ValueError:
+        return {"error": "Indica el número de semanas del curso."}, 400
+    if not 1 <= num_semanas <= 60:
+        return {"error": "El número de semanas debe estar entre 1 y 60."}, 400
+
     # Limpiar directorio temporal anterior
     if _TEMP_DIR and os.path.exists(_TEMP_DIR):
         shutil.rmtree(_TEMP_DIR, ignore_errors=True)
@@ -74,11 +81,11 @@ def analizar():
     }
 
     temp_dir = _TEMP_DIR
-    threading.Thread(target=_run_job, args=(job_id, temp_dir), daemon=True).start()
+    threading.Thread(target=_run_job, args=(job_id, temp_dir, num_semanas), daemon=True).start()
     return {"job_id": job_id}
 
 
-def _run_job(job_id: str, temp_dir: str) -> None:
+def _run_job(job_id: str, temp_dir: str, num_semanas: int | None = None) -> None:
     global _RESULTADO
     job = _JOBS[job_id]
     progress_lock = threading.Lock()
@@ -116,6 +123,7 @@ def _run_job(job_id: str, temp_dir: str) -> None:
             source,
             on_progress=on_progress,
             cancelado=lambda: _JOBS.get(job_id, {}).get("cancelado", False),
+            num_semanas=num_semanas,
         )
 
         with progress_lock:

@@ -69,7 +69,8 @@ class TestDuplicados:
         c2 = _comp(semana=5, monto=16265, rut_beneficiario="12.345.678-9", fecha_pago="01-03-2026",
                    archivo="semana5_copia.pdf")
         resultado = auditar_alumno("Juan Perez", [c1, c2])
-        alertas = [a for c in resultado.comprobantes for a in c.alertas if a.severidad == "error"]
+        # El duplicado es un aviso (warn), no un error: requiere revisión manual
+        alertas = [a for c in resultado.comprobantes for a in c.alertas if a.severidad == "warn"]
         assert any("duplicado" in a.mensaje.lower() for a in alertas)
 
     def test_pagos_parciales_no_son_duplicados(self):
@@ -78,7 +79,7 @@ class TestDuplicados:
         c2 = _comp(semana=5, indice_pago=2, monto=8000, fecha_pago="08-03-2026",
                    archivo="semana5 (1).pdf")
         resultado = auditar_alumno("Juan Perez", [c1, c2])
-        alertas = [a for c in resultado.comprobantes for a in c.alertas if a.severidad == "error"]
+        alertas = [a for c in resultado.comprobantes for a in c.alertas]
         assert not any("duplicado" in a.mensaje.lower() for a in alertas)
 
 
@@ -105,6 +106,41 @@ class TestSemanasFaltantes:
     def test_una_sola_semana_no_genera_faltantes(self):
         comps = [_comp(semana=5)]
         assert _detectar_semanas_faltantes(comps) == []
+
+
+class TestNumSemanasCurso:
+    def test_faltantes_contra_rango_completo(self):
+        # Curso de 10 semanas; alumno solo tiene 1, 2 y 5
+        comps = [_comp(semana=1), _comp(semana=2), _comp(semana=5)]
+        faltantes = _detectar_semanas_faltantes(comps, num_semanas=10)
+        assert faltantes == [3, 4, 6, 7, 8, 9, 10]
+
+    def test_semana_excedente_se_ignora_en_faltantes(self):
+        # Semana 18 en curso de 15: no debe agregar faltantes 16-17
+        comps = [_comp(semana=s) for s in range(1, 16)] + [_comp(semana=18)]
+        faltantes = _detectar_semanas_faltantes(comps, num_semanas=15)
+        assert faltantes == []
+
+    def test_alerta_semana_excede_curso(self):
+        comps = [_comp(semana=1), _comp(semana=18, archivo="semana18.pdf")]
+        resultado = auditar_alumno("Juan Perez", comps, num_semanas=15)
+        alertas = [a for c in resultado.comprobantes for a in c.alertas]
+        assert any("excede" in a.mensaje.lower() for a in alertas)
+
+    def test_sin_excedentes_no_alerta(self):
+        comps = [_comp(semana=s) for s in range(1, 16)]
+        resultado = auditar_alumno("Juan Perez", comps, num_semanas=15)
+        alertas = [a for c in resultado.comprobantes for a in c.alertas]
+        assert not any("excede" in a.mensaje.lower() for a in alertas)
+
+    def test_solo_semanas_excedentes_no_genera_faltantes(self):
+        # Todos los comprobantes fuera de rango: no reportar 1..N completo
+        comps = [_comp(semana=18), _comp(semana=20)]
+        assert _detectar_semanas_faltantes(comps, num_semanas=15) == []
+
+    def test_sin_num_semanas_mantiene_comportamiento_anterior(self):
+        comps = [_comp(semana=1), _comp(semana=3)]
+        assert _detectar_semanas_faltantes(comps) == [2]
 
 
 class TestCarpetaVacia:

@@ -5,7 +5,12 @@ import unicodedata
 from .models import Alerta, Comprobante, ResultadoAlumno
 
 
-def auditar_alumno(nombre_carpeta: str, comprobantes: list[Comprobante], curso: str = "") -> ResultadoAlumno:
+def auditar_alumno(
+    nombre_carpeta: str,
+    comprobantes: list[Comprobante],
+    curso: str = "",
+    num_semanas: int | None = None,
+) -> ResultadoAlumno:
     """Aplica todas las reglas y retorna ResultadoAlumno con alertas y semanas faltantes."""
     alertas_alumno: list[Alerta] = []
 
@@ -18,6 +23,9 @@ def auditar_alumno(nombre_carpeta: str, comprobantes: list[Comprobante], curso: 
 
     # Alertas por comprobante
     for c in comprobantes:
+        if num_semanas is not None and c.semana is not None and c.semana > num_semanas:
+            c.alertas.append(Alerta("🟡", "warn",
+                f"Semana {c.semana} excede las {num_semanas} semanas del curso — no se considera en la revisión"))
         if c.monto is None:
             c.alertas.append(Alerta("🟡", "warn", "Monto no encontrado — revisar manualmente"))
         c.alertas.extend(_alertas_nombre_no_coincide(nombre_carpeta, c))
@@ -26,7 +34,7 @@ def auditar_alumno(nombre_carpeta: str, comprobantes: list[Comprobante], curso: 
     semanas_faltantes: list[int] = []
     for cat, label in (("subsidio", "Subsidio"), ("cuidados", "Cuidados")):
         comps_cat = [c for c in comprobantes if c.categoria == cat]
-        faltantes = _detectar_semanas_faltantes(comps_cat)
+        faltantes = _detectar_semanas_faltantes(comps_cat, num_semanas)
         if faltantes:
             semanas_faltantes.extend(faltantes)
             alertas_alumno.append(
@@ -79,9 +87,22 @@ def _alertas_duplicado(c: Comprobante, todos: list[Comprobante]) -> list[Alerta]
     return alertas
 
 
-def _detectar_semanas_faltantes(comprobantes: list[Comprobante]) -> list[int]:
-    """⚪ Huecos en la secuencia de semanas entre la mínima y la máxima presentes."""
+def _detectar_semanas_faltantes(
+    comprobantes: list[Comprobante],
+    num_semanas: int | None = None,
+) -> list[int]:
+    """⚪ Semanas sin comprobante.
+
+    Con num_semanas: se revisa el rango completo 1..num_semanas (las semanas
+    que exceden el curso se ignoran). Sin num_semanas: huecos entre la mínima
+    y la máxima presentes.
+    """
     semanas = {c.semana for c in comprobantes if c.semana is not None}
+    if num_semanas is not None:
+        semanas = {s for s in semanas if s <= num_semanas}
+        if not semanas:
+            return []
+        return [s for s in range(1, num_semanas + 1) if s not in semanas]
     if len(semanas) < 2:
         return []
     rango = range(min(semanas), max(semanas) + 1)

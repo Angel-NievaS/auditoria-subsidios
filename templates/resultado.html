@@ -24,6 +24,7 @@
   <p class="subtitle">
     Carpeta: <strong>{{ resultado.carpeta }}</strong> &nbsp;·&nbsp;
     Análisis: <strong>{{ resultado.fecha }}</strong>
+    {% if resultado.num_semanas %}&nbsp;·&nbsp; Semanas del curso: <strong>{{ resultado.num_semanas }}</strong>{% endif %}
   </p>
 
   {# ── Stats ── #}

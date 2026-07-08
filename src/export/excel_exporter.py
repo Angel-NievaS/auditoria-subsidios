@@ -108,10 +108,13 @@ def _build_resumen(
 
         # Una fila por alumno
         for alumno in grupo:
+            n_sem = resultado.num_semanas
             sem_sub = len({c.semana for c in alumno.comprobantes
-                           if c.categoria == "subsidio" and c.semana is not None})
+                           if c.categoria == "subsidio" and c.semana is not None
+                           and (n_sem is None or c.semana <= n_sem)})
             sem_cui = len({c.semana for c in alumno.comprobantes
-                           if c.categoria == "cuidados" and c.semana is not None})
+                           if c.categoria == "cuidados" and c.semana is not None
+                           and (n_sem is None or c.semana <= n_sem)})
             tot_sub = sum(c.monto for c in alumno.comprobantes
                           if c.categoria == "subsidio" and c.monto)
             tot_cui = sum(c.monto for c in alumno.comprobantes
@@ -122,8 +125,8 @@ def _build_resumen(
             ws.append([
                 alumno.curso,
                 alumno.nombre,
-                sem_sub or "",
-                sem_cui or "",
+                (f"{sem_sub} / {n_sem}" if n_sem else sem_sub) if sem_sub else "",
+                (f"{sem_cui} / {n_sem}" if n_sem else sem_cui) if sem_cui else "",
                 tot_sub,
                 tot_cui,
                 tot_sub + tot_cui,

@@ -55,6 +55,11 @@
                onchange="actualizarConteo(this)">
       </div>
       <p id="conteo" class="conteo"></p>
+      <div class="campo-semanas">
+        <label for="num-semanas">Número de semanas del curso</label>
+        <input type="number" id="num-semanas" name="num_semanas"
+               min="1" max="60" placeholder="ej: 15" required>
+      </div>
       <button type="submit" class="btn-primary" id="btn-analizar">Analizar</button>
     </form>
     <div class="footer-cerrar">
@@ -82,9 +87,16 @@ document.getElementById('form-analizar').addEventListener('submit', async functi
     return;
   }
 
+  const numSemanas = parseInt(document.getElementById('num-semanas').value, 10);
+  if (!numSemanas || numSemanas < 1 || numSemanas > 60) {
+    alert('Indica el número de semanas del curso (entre 1 y 60).');
+    return;
+  }
+
   showOverlay();
 
   const formData = new FormData();
+  formData.append('num_semanas', numSemanas);
   for (const f of files) formData.append('archivos', f, f.webkitRelativePath || f.name);
 
   let jobId;

@@ -3,7 +3,7 @@
 ;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
 #define AppName      "Auditoria Subsidios"
-#define AppVersion   "1.0"
+#define AppVersion   "1.1"
 #define AppPublisher "Sustantiva SPA"
 #define AppExeName   "Auditoria Subsidios.exe"
 #define SourceDir    "dist\Auditoria Subsidios"
@@ -14,7 +14,7 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisherURL=https://sustantiva.cl
 AppPublisher={#AppPublisher}
-DefaultDirName={autopf}\{#AppName}
+DefaultDirName=C:\{#AppName}
 DefaultGroupName={#AppName}
 AllowNoIcons=yes
 OutputDir=dist
@@ -24,9 +24,7 @@ UninstallDisplayIcon={app}\{#AppExeName}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequiredOverridesAllowed=dialog
-; Permite instalar sin ser administrador si el usuario lo prefiere
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
@@ -39,8 +37,8 @@ Source: "{#SourceDir}\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#AppName}";       Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"
-Name: "{group}\Desinstalar";      Filename: "{uninstallexe}"
+Name: "{group}\{#AppName}";         Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"
+Name: "{group}\Desinstalar";        Filename: "{uninstallexe}"
 Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]

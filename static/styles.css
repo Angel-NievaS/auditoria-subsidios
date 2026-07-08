@@ -51,6 +51,22 @@ button.btn-primary { font-size: 1rem; padding: 0.5rem 1.4rem; }
 .btn-danger-outline:hover { background: #fdf0ef; }
 .footer-cerrar { margin-top: 2rem; text-align: right; }
 
+/* ── Campo semanas (index) ── */
+.campo-semanas {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+.campo-semanas label { font-size: 0.9rem; color: #333; font-weight: 600; }
+.campo-semanas input {
+  width: 90px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #90aacc;
+  border-radius: 5px;
+  font-size: 0.95rem;
+}
+
 /* ── Drop zone (index) ── */
 .drop-zone {
   border: 2px dashed #90aacc;

@@ -30,6 +30,7 @@ def run_analysis(
     source: ReceiptSource,
     on_progress: Callable[[str, str, int, int], None] | None = None,
     cancelado: Callable[[], bool] | None = None,
+    num_semanas: int | None = None,
 ) -> ResultadoAuditoria:
     """
     Procesa hasta _MAX_WORKERS alumnos en paralelo con ThreadPoolExecutor.
@@ -58,7 +59,8 @@ def run_analysis(
             receipts = source.list_receipts(folder)
             comprobantes = _procesar_receipts(source, folder, receipts)
             _rellenar_nombres_faltantes(comprobantes)
-            resultado = auditar_alumno(folder.name, comprobantes, curso=folder.curso)
+            resultado = auditar_alumno(folder.name, comprobantes, curso=folder.curso,
+                                       num_semanas=num_semanas)
             if folder.name in duplicados:
                 resultado.alertas.insert(0, Alerta("🟡", "warn",
                     f"Carpeta duplicada: '{folder.name}' aparece en más de una ruta"))
@@ -93,6 +95,7 @@ def run_analysis(
         carpeta=carpeta_nombre,
         fecha=date.today().strftime("%d-%m-%Y"),
         alumnos=[r for r in resultados if r is not None],
+        num_semanas=num_semanas,
     )
 
 

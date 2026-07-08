@@ -47,3 +47,4 @@ class ResultadoAuditoria:
     carpeta: str
     fecha: str                         # DD-MM-YYYY
     alumnos: list[ResultadoAlumno] = field(default_factory=list)
+    num_semanas: int | None = None     # semanas del curso indicadas por el usuario

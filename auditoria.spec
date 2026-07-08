@@ -100,7 +100,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=True,   # consola visible: muestra logs de Flask y errores de inicio
+    console=False,
     icon="icon.ico",
 )
 
